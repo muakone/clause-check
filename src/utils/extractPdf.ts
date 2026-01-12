@@ -5,22 +5,16 @@ export async function extractPdf(file: File): Promise<string> {
   // extractable, propagate an error so the UI can show a clear message
   // instead of rendering unreadable binary content.
   try {
-    const [pdfjsLib, pdfWorker] = await Promise.all([
-      import("pdfjs-dist/build/pdf"),
-      import("pdfjs-dist/build/pdf.worker.min.mjs"),
-    ]);
+    const pdfjsLib = await import("pdfjs-dist");
 
     const data = new Uint8Array(arrayBuffer);
 
     const anyPdfjs: any = pdfjsLib;
-    if (
-      anyPdfjs.GlobalWorkerOptions &&
-      !anyPdfjs.GlobalWorkerOptions.workerSrc
-    ) {
-      anyPdfjs.GlobalWorkerOptions.workerSrc = (pdfWorker as any).default;
-    }
 
-    const loadingTask = anyPdfjs.getDocument({ data });
+    // Use pdf.js in "no worker" mode to avoid needing a separate
+    // worker bundle path, which simplifies bundling in environments
+    // like Vercel.
+    const loadingTask = anyPdfjs.getDocument({ data, disableWorker: true });
     const pdf = await loadingTask.promise;
 
     let fullText = "";
