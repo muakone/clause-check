@@ -12,7 +12,6 @@ import { AppNav } from "./AppNav";
 type TopBarProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  onUpload: (file: File) => void;
   uploadError?: string | null;
   isUploading: boolean;
   selectedPack: RulePackKey;
@@ -23,26 +22,17 @@ type TopBarProps = {
 export function TopBar({
   searchQuery,
   onSearchChange,
-  onUpload,
   uploadError,
   isUploading,
   selectedPack,
   onSelectedPackChange,
   onRunChecks,
 }: TopBarProps) {
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-
   const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onUpload(file);
-    }
-    // allow re-uploading the same file
-    event.target.value = "";
+    const uploader = document.querySelector<HTMLElement>(
+      "input[type='file'][data-main-uploader='true']"
+    );
+    uploader?.click();
   };
 
   return (
@@ -51,7 +41,7 @@ export function TopBar({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
             <span className="font-serif text-[1.6rem] font-semibold leading-tight tracking-tight">
-              ClauseCheck
+              chequeck
             </span>
             <span className="text-[0.7rem] font-sans uppercase tracking-[0.3em] text-dusty">
               Loan clause review
@@ -101,14 +91,6 @@ export function TopBar({
             <UploadCloud className="mr-2 h-4 w-4" />
             {isUploading ? "Uploading\t" : "Upload"}
           </Button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".docx,.pdf"
-            className="hidden"
-            onChange={handleFileChange}
-          />
 
           <div className="relative w-40 xs:w-48 sm:w-64 md:w-72 max-w-full flex-1 min-w-[10rem]">
             <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-dusty">

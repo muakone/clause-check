@@ -16,10 +16,11 @@ import { type Finding } from "@/lib/mockData";
 import { renderHighlightedText } from "../utils/renderHighlightedText";
 
 type DocumentViewerProps = {
-  documentText: string;
+  documentText: string | null;
   findings: Finding[];
   openFinding: (finding: Finding) => void;
   isLoading?: boolean;
+  onUploadClick?: () => void;
 };
 
 export function DocumentViewer({
@@ -27,6 +28,7 @@ export function DocumentViewer({
   findings,
   openFinding,
   isLoading,
+  onUploadClick,
 }: DocumentViewerProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [matchRanges, setMatchRanges] = React.useState<
@@ -45,7 +47,7 @@ export function DocumentViewer({
       return;
     }
 
-    const loweredText = documentText.toLowerCase();
+    const loweredText = (documentText || "").toLowerCase();
     const loweredQuery = q.toLowerCase();
     const ranges: { start: number; end: number }[] = [];
 
@@ -81,8 +83,9 @@ export function DocumentViewer({
   }, [activeMatchIndex, matchRanges]);
 
   const contentNodes = React.useMemo(() => {
+    const safeText = documentText || "";
     return renderHighlightedText(
-      documentText,
+      safeText,
       findings,
       openFinding,
       matchRanges,
@@ -154,6 +157,24 @@ export function DocumentViewer({
               <span>
                 Loading document — extracting text and running checks…
               </span>
+            </div>
+          </div>
+        ) : !documentText ? (
+          <div className="flex h-full w-full items-center justify-center px-4 py-8 text-center text-sm text-navy/70">
+            <div className="space-y-3 max-w-sm">
+              <h3 className="font-serif text-[1.05rem] font-semibold tracking-tight">
+                Upload a document to begin
+              </h3>
+              <p className="text-[0.85rem] text-navy/80">
+                Upload a .docx file to run checks and view highlights.
+              </p>
+              <Button
+                type="button"
+                className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-cream hover:bg-navy/90"
+                onClick={onUploadClick}
+              >
+                Upload .docx
+              </Button>
             </div>
           </div>
         ) : (

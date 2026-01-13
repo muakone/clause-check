@@ -6,11 +6,7 @@ import { TopBar } from "./TopBar";
 import { DocumentViewer } from "./DocumentViewer";
 import { FindingsPanel } from "./FindingsPanel";
 import { FindingDetailSheet } from "./FindingDetailSheet";
-import {
-  mockLoanDocumentText,
-  type Finding,
-  type Severity,
-} from "@/lib/mockData";
+import { type Finding, type Severity } from "@/lib/mockData";
 import { extractDocx } from "@/utils/extractDocx";
 import { extractPdf } from "@/utils/extractPdf";
 import { runRules } from "@/rules/ruleEngine";
@@ -25,8 +21,7 @@ export function AppShell() {
   const [activeSeverity, setActiveSeverity] = React.useState<Severity | "all">(
     "all"
   );
-  const [documentText, setDocumentText] =
-    React.useState<string>(mockLoanDocumentText);
+  const [documentText, setDocumentText] = React.useState<string | null>(null);
   const [selectedPack, setSelectedPack] = React.useState<RulePackKey>("core");
   const [findings, setFindings] = React.useState<Finding[]>([]);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
@@ -60,7 +55,17 @@ export function AppShell() {
         const text = isDocx ? await extractDocx(file) : await extractPdf(file);
         const safeText = text || "";
 
-        setDocumentText(safeText || mockLoanDocumentText);
+        if (!safeText.trim()) {
+          setUploadError(
+            "We couldn’t read any text from that document. Please try another .docx or .pdf file."
+          );
+          setDocumentText(null);
+          setFindings([]);
+          setResolvedFindingIds([]);
+          return;
+        }
+
+        setDocumentText(safeText);
 
         const pack = RULE_PACKS[selectedPack];
         const rules = pack?.rules ?? [];
@@ -80,6 +85,8 @@ export function AppShell() {
   );
 
   const handleRunChecks = React.useCallback(() => {
+    if (!documentText) return;
+
     const pack = RULE_PACKS[selectedPack];
     const rules = pack?.rules ?? [];
     const results = runRules(documentText, rules);
@@ -146,7 +153,7 @@ export function AppShell() {
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>ClauseCheck Findings Report</title>
+    <title>chequeck Findings Report</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; padding: 24px; }
       h1 { font-size: 20px; margin-bottom: 4px; }
@@ -156,7 +163,7 @@ export function AppShell() {
     </style>
   </head>
   <body>
-    <h1>ClauseCheck findings report</h1>
+    <h1>chequeck findings report</h1>
     <p style="font-size:11px; color:#4b5563;">Pack: ${escapeHtml(
       RULE_PACKS[selectedPack]?.label ?? selectedPack
     )} · Generated: ${new Date().toLocaleString()}</p>
@@ -190,17 +197,42 @@ export function AppShell() {
     [findings, resolvedFindingIds]
   );
 
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleFileInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      void handleUpload(file);
+    }
+    // allow re-uploading the same file
+    event.target.value = "";
+  };
+
+  const triggerUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="min-h-screen bg-cream text-navy flex flex-col">
       <TopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onUpload={handleUpload}
         uploadError={uploadError}
         isUploading={isUploading}
         selectedPack={selectedPack}
         onSelectedPackChange={setSelectedPack}
         onRunChecks={handleRunChecks}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".docx,.pdf"
+        className="hidden"
+        data-main-uploader="true"
+        onChange={handleFileInputChange}
       />
 
       <main className="flex-1 px-4 pb-6 pt-3 sm:px-6">
@@ -210,6 +242,7 @@ export function AppShell() {
             findings={visibleFindings}
             openFinding={handleSelectFinding}
             isLoading={isUploading}
+            onUploadClick={triggerUpload}
           />
 
           <FindingsPanel

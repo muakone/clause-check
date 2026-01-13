@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { IntroSplash } from "@/components/IntroSplash";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ClauseCheck — Loan Clause Review",
+  title: "chequeck — Loan Clause Review",
   description:
-    "ClauseCheck is a deterministic loan document and clause review tool for spotting drafting and governance risks.",
+    "chequeck is a deterministic loan document and clause review tool for spotting drafting and governance risks.",
 };
 
 export default function RootLayout({
@@ -28,7 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <IntroSplash>{children}</IntroSplash>
       </body>
     </html>
   );

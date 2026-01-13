@@ -286,7 +286,7 @@ export default function ManualClauseCheckPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-1">
             <span className="font-serif text-[1.6rem] font-semibold leading-tight tracking-tight">
-              ClauseCheck
+              chequeck
             </span>
             <span className="text-[0.7rem] font-sans uppercase tracking-[0.3em] text-dusty">
               Loan clause review
