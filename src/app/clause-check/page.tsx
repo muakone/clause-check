@@ -146,9 +146,9 @@ function createClauseRules(): ClauseRule[] {
         ruleTitle: "On-demand / immediate repayment",
         category: "Safeguards",
         matchedText: trigger,
-        why: "This clause suggests the lender may demand repayment at will (for example, 'repayable on demand' or similar), which can create significant cash-flow and refinancing risk for the borrower.",
+        why: "This clause suggests one party may demand immediate performance or repayment at will (for example, 'repayable on demand' or similar), which can create significant operational and financial risk for the other party.",
         suggestion:
-          "Consider tying acceleration to defined Events of Default or objective triggers instead of unrestricted on-demand repayment rights.",
+          "Consider tying acceleration to defined Events of Default or objective triggers instead of unrestricted on-demand rights.",
       };
     },
   });
@@ -177,7 +177,7 @@ function createClauseRules(): ClauseRule[] {
       const verbRegex = /may\s+(?:amend|vary|modify|replace)/i;
       const noticeRegex = /by written notice|by notice|upon notice/i;
       const consentRegex =
-        /agreed in writing by both parties|signed by both parties|with the consent of the borrower/i;
+        /agreed in writing by both parties|signed by both parties|with the consent of the (?:other party|counterparty|parties)/i;
 
       const verbMatch = verbRegex.exec(text);
       const noticeMatch = noticeRegex.exec(text);
@@ -289,7 +289,7 @@ export default function ManualClauseCheckPage() {
               chequeck
             </span>
             <span className="text-[0.7rem] font-sans uppercase tracking-[0.3em] text-dusty">
-              Loan clause review
+              Agreement clause review
             </span>
           </div>
 
@@ -323,7 +323,7 @@ export default function ManualClauseCheckPage() {
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                   setClauseText(e.target.value)
                 }
-                placeholder="Paste a loan clause here (e.g. amendment, waiver, discretion, repayment)..."
+                placeholder="Paste a clause here (e.g. amendment, waiver, discretion, termination)..."
                 rows={8}
                 className="min-h-40 resize-y rounded-2xl border-dusty/40 bg-cream/95 text-sm text-navy placeholder:text-dusty/70"
               />

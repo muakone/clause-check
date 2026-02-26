@@ -26,6 +26,9 @@ export function AppShell() {
   const [findings, setFindings] = React.useState<Finding[]>([]);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = React.useState(false);
+  const [aiError, setAiError] = React.useState<string | null>(null);
+  const [aiCount, setAiCount] = React.useState<number | null>(null);
   const [resolvedFindingIds, setResolvedFindingIds] = React.useState<string[]>(
     []
   );
@@ -66,17 +69,55 @@ export function AppShell() {
         }
 
         setDocumentText(safeText);
+        setAiError(null);
+        setAiCount(null);
 
         const pack = RULE_PACKS[selectedPack];
         const rules = pack?.rules ?? [];
         const results = runRules(safeText, rules);
         setFindings(results);
         setResolvedFindingIds([]);
+
+        // Fire AI analysis in background — merges findings as they arrive
+        setIsAiAnalyzing(true);
+        fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: safeText }),
+        })
+          .then(async (r) => {
+            const body = await r.json();
+            if (!r.ok) throw new Error((body as { error?: string }).error ?? "AI analysis failed");
+            return body as { findings: unknown[] };
+          })
+          .then(({ findings: aiRaw }) => {
+            if (!Array.isArray(aiRaw)) return;
+            const aiFindings: Finding[] = aiRaw.map((f, i) => {
+              const item = f as Record<string, unknown>;
+              return {
+                id: `AI-${i + 1}`,
+                severity: (item.severity as Finding["severity"]) ?? "medium",
+                ruleId: `AI-${i + 1}`,
+                ruleTitle: (item.title as string) ?? "AI Finding",
+                category: item.category as Finding["category"],
+                why: (item.why as string) ?? "",
+                suggestion: (item.suggestion as string) ?? "",
+                matchedText: (item.matchedText as string) ?? "",
+                locationLabel: item.locationLabel as string | undefined,
+              };
+            });
+            setFindings((prev) => [...prev, ...aiFindings]);
+            setAiCount(aiFindings.length);
+          })
+          .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : "AI analysis failed";
+            setAiError(msg);
+          })
+          .finally(() => setIsAiAnalyzing(false));
       } catch (error) {
-        console.error("Failed to read document", error);
-        setUploadError(
-          "We couldn’t read that document. Please try another .docx or .pdf file."
-        );
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error("Failed to read document", msg);
+        setUploadError(msg);
       } finally {
         setIsUploading(false);
       }
@@ -235,6 +276,36 @@ export function AppShell() {
         onChange={handleFileInputChange}
       />
 
+      {/* AI status banner */}
+      {isAiAnalyzing && (
+        <div className="border-b border-navy/20 bg-navy px-4 py-2 sm:px-6">
+          <div className="mx-auto flex max-w-6xl items-center gap-3">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-cream border-t-transparent" />
+            <span className="text-[0.8rem] font-medium text-cream">
+              Gemini AI is analysing your document for additional risks…
+            </span>
+          </div>
+        </div>
+      )}
+      {aiError && !isAiAnalyzing && (
+        <div className="border-b border-red-300 bg-red-50 px-4 py-2 sm:px-6">
+          <div className="mx-auto max-w-6xl text-[0.75rem] text-red-700">
+            AI analysis failed — {aiError}
+          </div>
+        </div>
+      )}
+      {aiCount !== null && !isAiAnalyzing && !aiError && (
+        <div className="border-b border-navy/20 bg-navy/8 px-4 py-2 sm:px-6">
+          <div className="mx-auto max-w-6xl text-[0.75rem] font-medium text-navy">
+            Gemini AI added {aiCount} additional finding{aiCount !== 1 ? "s" : ""} — look for the{" "}
+            <span className="inline-flex items-center rounded-full border border-navy bg-navy px-1.5 py-0 text-[0.6rem] font-bold text-cream">
+              AI
+            </span>{" "}
+            badge in the list.
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 px-4 pb-6 pt-3 sm:px-6">
         <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-[2fr_1fr]">
           <DocumentViewer
@@ -252,6 +323,8 @@ export function AppShell() {
             onSeverityChange={setActiveSeverity}
             onSelectFinding={handleSelectFinding}
             onExportReport={handleExportReport}
+            isAiAnalyzing={isAiAnalyzing}
+            aiError={aiError}
           />
         </div>
       </main>

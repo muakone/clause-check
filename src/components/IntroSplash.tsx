@@ -3,7 +3,7 @@
 import * as React from "react";
 
 const INTRO_LINES = [
-  "Checking loan documents…",
+  "Checking agreement documents…",
   "Flagging inconsistencies…",
   "Making risk visible.",
 ];
@@ -102,7 +102,7 @@ export function IntroSplash({ children }: IntroSplashProps) {
                 chequeck
               </span>
               <span className="text-[0.7rem] font-sans uppercase tracking-[0.3em] text-dusty">
-                Loan clause review
+                Agreement clause review
               </span>
             </div>
 

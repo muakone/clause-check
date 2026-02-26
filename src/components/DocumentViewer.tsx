@@ -110,7 +110,7 @@ export function DocumentViewer({
     <Card className="flex flex-col rounded-2xl border-tan/40 bg-cream/95 shadow-md max-h-[calc(100vh-6rem)]">
       <CardHeader className="pb-2 pt-3 sm:pb-3 sm:pt-4">
         <CardTitle className="font-serif text-[1.1rem] font-semibold tracking-tight">
-          Loan agreement
+          Agreement document
         </CardTitle>
         <CardDescription className="mt-1 text-[0.7rem] uppercase tracking-[0.25em] text-dusty">
           Document — highlighted text shows flagged clauses
@@ -166,14 +166,14 @@ export function DocumentViewer({
                 Upload a document to begin
               </h3>
               <p className="text-[0.85rem] text-navy/80">
-                Upload a .docx file to run checks and view highlights.
+                Upload a .docx or .pdf file to run checks and view highlights.
               </p>
               <Button
                 type="button"
                 className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-cream hover:bg-navy/90"
                 onClick={onUploadClick}
               >
-                Upload .docx
+                Upload document (.docx or .pdf)
               </Button>
             </div>
           </div>

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { extractDocx } from "@/utils/extractDocx";
+import { extractPdf } from "@/utils/extractPdf";
 import type { Severity } from "@/lib/mockData";
 import { AppNav } from "@/components/AppNav";
 
@@ -264,6 +265,17 @@ export default function ComparePage() {
     newInputRef.current?.click();
   };
 
+  async function extractFile(file: File): Promise<string> {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".pdf")) return extractPdf(file);
+    return extractDocx(file);
+  }
+
+  function isValidFile(file: File): boolean {
+    const name = file.name.toLowerCase();
+    return name.endsWith(".docx") || name.endsWith(".pdf");
+  }
+
   const handleBaselineChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -271,22 +283,21 @@ export default function ComparePage() {
     if (!file) return;
 
     setError(null);
-    if (!file.name.toLowerCase().endsWith(".docx")) {
-      setError("Please upload a .docx file for the baseline agreement.");
+    if (!isValidFile(file)) {
+      setError("Please upload a .docx or .pdf file for the baseline agreement.");
       return;
     }
 
     setIsLoadingBaseline(true);
     try {
-      const text = await extractDocx(file);
+      const text = await extractFile(file);
       setBaselineText(text || "");
       setBaselineName(file.name);
     } catch (err) {
-      console.error("Failed to read baseline .docx", err);
-      setError("We couldn't read the baseline .docx file. Please try another.");
+      console.error("Failed to read baseline file", err);
+      setError("We couldn't read the baseline file. Please try another.");
     } finally {
       setIsLoadingBaseline(false);
-      // Allow re-selecting the same file if needed
       event.target.value = "";
     }
   };
@@ -298,19 +309,19 @@ export default function ComparePage() {
     if (!file) return;
 
     setError(null);
-    if (!file.name.toLowerCase().endsWith(".docx")) {
-      setError("Please upload a .docx file for the new / amended agreement.");
+    if (!isValidFile(file)) {
+      setError("Please upload a .docx or .pdf file for the new / amended agreement.");
       return;
     }
 
     setIsLoadingNew(true);
     try {
-      const text = await extractDocx(file);
+      const text = await extractFile(file);
       setNewText(text || "");
       setNewName(file.name);
     } catch (err) {
-      console.error("Failed to read new .docx", err);
-      setError("We couldn't read the new .docx file. Please try another.");
+      console.error("Failed to read new file", err);
+      setError("We couldn't read the new file. Please try another.");
     } finally {
       setIsLoadingNew(false);
       event.target.value = "";
@@ -340,7 +351,7 @@ export default function ComparePage() {
               chequeck
             </span>
             <span className="text-[0.7rem] font-sans uppercase tracking-[0.3em] text-dusty">
-              Loan clause review
+              Agreement clause review
             </span>
           </div>
 
@@ -355,7 +366,7 @@ export default function ComparePage() {
               Document Comparison
             </h1>
             <p className="max-w-2xl text-sm text-navy/80">
-              Compare a baseline loan agreement against a new or amended version
+              Compare a baseline agreement against a new or amended version
               to spot structural and drafting differences in a deterministic
               way.
             </p>
@@ -371,7 +382,7 @@ export default function ComparePage() {
             <Card className="rounded-2xl border-tan/40 bg-cream/95 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="font-serif text-[1.1rem] font-semibold tracking-tight">
-                  Baseline Agreement (.docx)
+                  Baseline Agreement
                 </CardTitle>
                 <CardDescription className="mt-1 text-xs uppercase tracking-[0.25em] text-dusty">
                   Original / reference document
@@ -381,7 +392,7 @@ export default function ComparePage() {
                 <input
                   ref={baselineInputRef}
                   type="file"
-                  accept=".docx"
+                  accept=".docx,.pdf"
                   className="hidden"
                   onChange={handleBaselineChange}
                 />
@@ -392,7 +403,7 @@ export default function ComparePage() {
                   onClick={handleSelectBaseline}
                   disabled={isLoadingBaseline}
                 >
-                  {isLoadingBaseline ? "Loading baseline…" : "Upload .docx"}
+                  {isLoadingBaseline ? "Loading baseline…" : "Upload .docx or .pdf"}
                 </Button>
                 {baselineName && (
                   <p className="truncate text-xs text-navy/70">
@@ -405,7 +416,7 @@ export default function ComparePage() {
             <Card className="rounded-2xl border-tan/40 bg-cream/95 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="font-serif text-[1.1rem] font-semibold tracking-tight">
-                  New / Amended Agreement (.docx)
+                  New / Amended Agreement
                 </CardTitle>
                 <CardDescription className="mt-1 text-xs uppercase tracking-[0.25em] text-dusty">
                   Latest draft to compare
@@ -415,7 +426,7 @@ export default function ComparePage() {
                 <input
                   ref={newInputRef}
                   type="file"
-                  accept=".docx"
+                  accept=".docx,.pdf"
                   className="hidden"
                   onChange={handleNewChange}
                 />
@@ -426,7 +437,7 @@ export default function ComparePage() {
                   onClick={handleSelectNew}
                   disabled={isLoadingNew}
                 >
-                  {isLoadingNew ? "Loading new agreement…" : "Upload .docx"}
+                  {isLoadingNew ? "Loading new agreement…" : "Upload .docx or .pdf"}
                 </Button>
                 {newName && (
                   <p className="truncate text-xs text-navy/70">

@@ -44,7 +44,7 @@ export function TopBar({
               chequeck
             </span>
             <span className="text-[0.7rem] font-sans uppercase tracking-[0.3em] text-dusty">
-              Loan clause review
+              Agreement clause review
             </span>
           </div>
 

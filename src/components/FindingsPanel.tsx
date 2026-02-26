@@ -24,6 +24,8 @@ type FindingsPanelProps = {
   onSeverityChange: (severity: Severity | "all") => void;
   onSelectFinding: (finding: Finding) => void;
   onExportReport: () => void;
+  isAiAnalyzing?: boolean;
+  aiError?: string | null;
 };
 
 function severityLabel(severity: Severity) {
@@ -70,6 +72,8 @@ export function FindingsPanel({
   onSeverityChange,
   onSelectFinding,
   onExportReport,
+  isAiAnalyzing,
+  aiError,
 }: FindingsPanelProps) {
   const { highCount, mediumCount, lowCount } = React.useMemo(() => {
     let high = 0;
@@ -124,6 +128,18 @@ export function FindingsPanel({
             {filteredFindings.length} of {findings.length} shown
           </span>
         </CardDescription>
+        {isAiAnalyzing && (
+          <div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-navy/60">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-navy/50" />
+            Gemini AI analysing document…
+          </div>
+        )}
+        {aiError && !isAiAnalyzing && (
+          <div className="mt-1 text-[0.65rem] text-red-600">
+            AI analysis failed — restart the server and check your
+            GEMINI_API_KEY.
+          </div>
+        )}
         <div className="mt-2 flex items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2 text-[0.7rem] text-navy/80">
             <span>High: {highCount}</span>
@@ -172,6 +188,11 @@ export function FindingsPanel({
                       {categoryLabel(finding.category) && (
                         <span className="rounded-full border border-tan/50 bg-cream/80 px-2 py-[0.05rem] text-[0.6rem] font-semibold normal-case tracking-[0.12em] text-navy/80">
                           {categoryLabel(finding.category)}
+                        </span>
+                      )}
+                      {finding.ruleId.startsWith("AI-") && (
+                        <span className="rounded-full border border-navy bg-navy px-2 py-[0.05rem] text-[0.6rem] font-bold normal-case tracking-[0.12em] text-cream">
+                          AI
                         </span>
                       )}
                     </div>

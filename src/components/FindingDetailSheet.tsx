@@ -85,9 +85,15 @@ export function FindingDetailSheet({
                 <span className="text-[0.7rem] uppercase tracking-[0.25em]">
                   {finding.locationLabel}
                 </span>
-                <span className="text-[0.7rem] text-dusty/80">
-                  Rule {finding.ruleId}
-                </span>
+                {finding.ruleId.startsWith("AI-") ? (
+                  <span className="rounded-full border border-navy bg-navy px-2 py-[0.05rem] text-[0.6rem] font-bold uppercase tracking-[0.18em] text-cream">
+                    AI · Gemini
+                  </span>
+                ) : (
+                  <span className="text-[0.7rem] text-dusty/80">
+                    Rule {finding.ruleId}
+                  </span>
+                )}
               </SheetDescription>
             </SheetHeader>
 

@@ -20,25 +20,25 @@ export type Finding = {
   end?: number;
 };
 
-export const mockLoanDocumentText = `
-THIS LOAN AGREEMENT (the "Agreement") is made between LENDER BANK (the "Lender") and SAMPLE BORROWER LTD (the "Borrower").
+export const mockDocumentText = `
+THIS SERVICES AGREEMENT (the "Agreement") is made between SUPPLIER CORP (the "Supplier") and CLIENT LTD (the "Client").
 
-1. LOAN AMOUNT AND DRAWDOWN
-The Lender agrees to make available to the Borrower a term loan facility in the aggregate principal amount of [●] (the "Loan"). The exact amount and currency shall be inserted prior to execution.
+1. SERVICES AND SCOPE
+The Supplier agrees to provide to the Client the professional services described in Schedule 1 (the "Services"). The exact scope and deliverables shall be set out in a written statement of work agreed prior to commencement and inserted here: [●].
 
-2. INTEREST AND PAYMENT DATES
-2.1 The Loan shall bear interest at a rate of 6.5% per annum, calculated on the basis of a 365-day year.
-2.2 Interest shall be payable on each Interest Payment Date.
-2.3 The Lender may, acting in its sole and absolute discretion, vary the Interest Payment Date by giving not less than five (5) Business Days' notice to the Borrower. Any such variation shall be binding on the Borrower.
+2. FEES AND PAYMENT TERMS
+2.1 The Client shall pay to the Supplier the fees set out in Schedule 2 (the "Fees").
+2.2 Fees shall be payable within thirty (30) days of receipt of a valid invoice.
+2.3 The Supplier may, acting in its sole and absolute discretion, vary the payment schedule by giving not less than five (5) Business Days' notice to the Client. Any such variation shall be binding on the Client.
 
 3. AMENDMENTS
 3.1 No amendment of this Agreement shall be effective unless in writing and signed by both parties.
-3.2 Notwithstanding clause 3.1, the Lender may amend this Agreement by written notice to the Borrower in order to correct any manifest error.
+3.2 Notwithstanding clause 3.1, the Supplier may amend this Agreement by written notice to the Client in order to correct any manifest error.
 3.3 The parties agree that the provisions of clause 14.9 (Non-Existent Clause) shall apply to any amendment made under this clause 3, even though such clause does not exist in this Agreement.
 
 4. DEFINED TERMS
 4.1 "Business Day" means a day (other than a Saturday or Sunday) on which banks are open for general business in London.
-4.2 The Borrower shall ensure that all payments due under this Agreement are received by the Lender no later than 11:00 a.m. (London time) on each Business Day.
+4.2 The Client shall ensure that all payments due under this Agreement are received by the Supplier no later than 11:00 a.m. (London time) on each Business Day.
 `;
 
 export const mockFindings: Finding[] = [
@@ -48,11 +48,11 @@ export const mockFindings: Finding[] = [
     ruleId: "R-101",
     ruleTitle: "Unresolved commercial placeholder",
     category: "commercial-risk",
-    why: "The principal amount of the Loan is expressed using a placeholder ([●]) rather than a specific figure, which is risky if not resolved before signing.",
+    why: "The scope of Services is expressed using a placeholder ([●]) rather than specific wording, which is risky if not resolved before signing.",
     suggestion:
-      "Replace the placeholder with a clearly specified amount and currency, and ensure all parties approve the final figure before execution.",
-    matchedText: 'in the aggregate principal amount of [●] (the "Loan")',
-    locationLabel: "Clause 1 — Loan Amount and Drawdown",
+      "Replace the placeholder with the agreed scope detail, and ensure all parties approve the final wording before execution.",
+    matchedText: "inserted here: [●]",
+    locationLabel: "Clause 1 — Services and Scope",
   },
   {
     id: "F-002",

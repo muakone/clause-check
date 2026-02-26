@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "chequeck — Loan Clause Review",
+  title: "chequeck — Agreement Clause Review",
   description:
-    "chequeck is a deterministic loan document and clause review tool for spotting drafting and governance risks.",
+    "chequeck is a deterministic agreement and clause review tool for spotting drafting and governance risks.",
 };
 
 export default function RootLayout({

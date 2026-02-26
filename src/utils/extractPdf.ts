@@ -1,43 +1,23 @@
 export async function extractPdf(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer();
+  const formData = new FormData();
+  formData.append("file", file);
 
-  // Use pdfjs-dist for proper text extraction. If this fails or no text is
-  // extractable, propagate an error so the UI can show a clear message
-  // instead of rendering unreadable binary content.
-  try {
-    const pdfjsLib = await import("pdfjs-dist");
+  const response = await fetch("/api/extract-pdf", {
+    method: "POST",
+    body: formData,
+  });
 
-    const data = new Uint8Array(arrayBuffer);
-
-    const anyPdfjs: any = pdfjsLib;
-
-    // Use pdf.js in "no worker" mode to avoid needing a separate
-    // worker bundle path, which simplifies bundling in environments
-    // like Vercel.
-    const loadingTask = anyPdfjs.getDocument({ data, disableWorker: true });
-    const pdf = await loadingTask.promise;
-
-    let fullText = "";
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const content = await page.getTextContent();
-
-      const pageText = content.items
-        .map((item: any) => (typeof item.str === "string" ? item.str : ""))
-        .join(" ");
-
-      fullText += pageText + "\n\n";
-    }
-
-    const trimmed = fullText.trim();
-    if (!trimmed) {
-      throw new Error("No extractable text found in PDF");
-    }
-
-    return trimmed;
-  } catch (error) {
-    console.error("PDF text extraction failed", error);
-    throw error;
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? "PDF extraction failed"
+    );
   }
+
+  const { text } = (await response.json()) as { text: string };
+  if (!text?.trim()) {
+    throw new Error("No extractable text found in PDF");
+  }
+
+  return text;
 }
