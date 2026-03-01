@@ -18,219 +18,15 @@ import { extractPdf } from "@/utils/extractPdf";
 import type { Severity } from "@/lib/mockData";
 import { AppNav } from "@/components/AppNav";
 
-// Comparison finding model for document-vs-document checks.
 export type ComparisonFinding = {
   id: string;
-  severity: Severity; // "low" | "medium" | "high"
+  severity: Severity;
   ruleTitle: string;
   why: string;
   suggestion: string;
   baselineSnippet?: string;
   newSnippet?: string;
 };
-
-function normalizeWhitespace(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-// Split text into rough "paragraphs" based on blank lines and
-// return the first paragraph containing the keyword regex.
-function extractParagraphWithKeyword(
-  text: string,
-  keyword: RegExp
-): string | null {
-  if (!text) return null;
-
-  const paragraphs = text.split(/\n\s*\n/g);
-  for (const para of paragraphs) {
-    if (keyword.test(para)) {
-      return para.trim();
-    }
-  }
-  return null;
-}
-
-// Extract simple clause headings like "Clause 3.1" or "3.1" at
-// the start of a line.
-function extractClauseHeadings(text: string): Map<string, string> {
-  const result = new Map<string, string>();
-  const lines = text.split(/\r?\n/);
-  const headingRegex = /^\s*(?:Clause\s+)?(\d+(?:\.\d+)*)\b/i;
-
-  for (const line of lines) {
-    const match = headingRegex.exec(line);
-    if (match) {
-      const number = match[1];
-      if (number && !result.has(number)) {
-        result.set(number, line.trim());
-      }
-    }
-  }
-
-  return result;
-}
-
-// Extract defined terms of the form "Term" means ... up to end of line.
-function extractDefinitions(text: string): Map<string, string> {
-  const result = new Map<string, string>();
-  if (!text) return result;
-
-  const regex = /["“](.+?)["”]\s+means\b[^\n]*/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    const term = match[1] ? match[1].trim() : "";
-    if (!term) continue;
-    const key = term.toLowerCase();
-    const snippet = match[0].trim();
-    if (!result.has(key)) {
-      result.set(key, snippet);
-    }
-  }
-
-  return result;
-}
-
-function hasUnilateralRiskLanguage(text: string): boolean {
-  if (!text) return false;
-  const pattern =
-    /sole and absolute discretion|sole discretion|unilaterally|for any reason or no reason/i;
-  return pattern.test(text);
-}
-
-function compareDocuments(
-  baselineText: string,
-  newText: string
-): ComparisonFinding[] {
-  const findings: ComparisonFinding[] = [];
-  let counter = 1;
-
-  const addFinding = (finding: Omit<ComparisonFinding, "id">) => {
-    findings.push({ ...finding, id: `CF-${counter++}` });
-  };
-
-  // 1) Governing law mismatch
-  const baselineGov = extractParagraphWithKeyword(
-    baselineText,
-    /governing law/i
-  );
-  const newGov = extractParagraphWithKeyword(newText, /governing law/i);
-
-  if (baselineGov && newGov) {
-    if (normalizeWhitespace(baselineGov) !== normalizeWhitespace(newGov)) {
-      addFinding({
-        severity: "high",
-        ruleTitle: "Governing law mismatch",
-        why: "Both documents contain a governing law provision, but the wording appears to differ between the baseline and the new agreement.",
-        suggestion:
-          "Confirm which governing law and formulation should apply, then ensure the final agreement set uses a single, consistent governing law clause.",
-        baselineSnippet: baselineGov,
-        newSnippet: newGov,
-      });
-    }
-  }
-
-  // 2) Interest clause mismatch
-  const baselineInterest = extractParagraphWithKeyword(
-    baselineText,
-    /interest/i
-  );
-  const newInterest = extractParagraphWithKeyword(newText, /interest/i);
-
-  if (baselineInterest && newInterest) {
-    if (
-      normalizeWhitespace(baselineInterest) !== normalizeWhitespace(newInterest)
-    ) {
-      addFinding({
-        severity: "medium",
-        ruleTitle: "Interest clause mismatch",
-        why: "Both documents contain an interest clause, but the wording appears to differ between the baseline and the new agreement.",
-        suggestion:
-          "Review the interest provisions side by side (rate, day count, payment dates, margin, default interest) and confirm that any differences are intentional and appropriate.",
-        baselineSnippet: baselineInterest,
-        newSnippet: newInterest,
-      });
-    }
-  }
-
-  // 3) Unilateral amendment power introduced
-  const baselineUnilateral = hasUnilateralRiskLanguage(baselineText);
-  const newUnilateral = hasUnilateralRiskLanguage(newText);
-
-  if (!baselineUnilateral && newUnilateral) {
-    const newPara = extractParagraphWithKeyword(
-      newText,
-      /sole and absolute discretion|sole discretion|unilaterally|for any reason or no reason/i
-    );
-
-    addFinding({
-      severity: "high",
-      ruleTitle: "Unilateral amendment / discretion introduced",
-      why: "The new agreement appears to introduce language giving one party unilateral discretion or amendment power (for example, 'sole discretion' or 'unilaterally'), which was not present in the baseline document.",
-      suggestion:
-        "Confirm whether this new unilateral power is deliberate. If not, consider reverting to the baseline wording or tightening the clause so that changes require mutual agreement.",
-      baselineSnippet: baselineUnilateral
-        ? "Baseline already contained unilateral language."
-        : undefined,
-      newSnippet:
-        newPara ?? "Unilateral / sole discretion language in new agreement.",
-    });
-  }
-
-  // 4) Clause removed
-  const baselineHeadings = extractClauseHeadings(baselineText);
-  const newHeadings = extractClauseHeadings(newText);
-
-  for (const [number, line] of baselineHeadings.entries()) {
-    if (!newHeadings.has(number)) {
-      addFinding({
-        severity: "medium",
-        ruleTitle: "Clause removed in new agreement",
-        why: `A clause heading from the baseline agreement (Clause ${number}) does not appear in the new agreement. This may indicate that a provision has been removed between versions.`,
-        suggestion:
-          "Confirm whether the removal of this clause is intended. If the risk allocation or protections are still needed, consider reintroducing or relocating the relevant wording in the new agreement.",
-        baselineSnippet: line,
-        newSnippet: undefined,
-      });
-    }
-  }
-
-  // 5) Defined term inconsistency
-  const baselineDefs = extractDefinitions(baselineText);
-  const newDefs = extractDefinitions(newText);
-
-  // Terms that exist only in baseline
-  for (const [key, snippet] of baselineDefs.entries()) {
-    if (!newDefs.has(key)) {
-      addFinding({
-        severity: "medium",
-        ruleTitle: "Defined term missing in new agreement",
-        why: "A defined term in the baseline agreement does not appear to be defined in the new agreement, which may create gaps or inconsistencies if the concept is still used.",
-        suggestion:
-          "Check whether this term is still needed in the new agreement. If it is, add a corresponding definition; if not, consider removing any remaining references to it.",
-        baselineSnippet: snippet,
-        newSnippet: undefined,
-      });
-    }
-  }
-
-  // Terms that exist only in new
-  for (const [key, snippet] of newDefs.entries()) {
-    if (!baselineDefs.has(key)) {
-      addFinding({
-        severity: "low",
-        ruleTitle: "New defined term not present in baseline",
-        why: "The new agreement contains a defined term that does not appear in the baseline agreement. This may reflect an intentional change in structure or risk allocation.",
-        suggestion:
-          "Confirm that the introduction of this new defined term (and any related provisions) is intentional and consistent with the overall deal structure.",
-        baselineSnippet: undefined,
-        newSnippet: snippet,
-      });
-    }
-  }
-
-  return findings;
-}
 
 function severityBadgeClasses(severity: Severity): string {
   switch (severity) {
@@ -244,6 +40,17 @@ function severityBadgeClasses(severity: Severity): string {
   }
 }
 
+async function extractFile(file: File): Promise<string> {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return extractPdf(file);
+  return extractDocx(file);
+}
+
+function isValidFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".docx") || name.endsWith(".pdf");
+}
+
 export default function ComparePage() {
   const [baselineName, setBaselineName] = React.useState<string | null>(null);
   const [newName, setNewName] = React.useState<string | null>(null);
@@ -251,30 +58,13 @@ export default function ComparePage() {
   const [newText, setNewText] = React.useState("");
   const [isLoadingBaseline, setIsLoadingBaseline] = React.useState(false);
   const [isLoadingNew, setIsLoadingNew] = React.useState(false);
+  const [isComparing, setIsComparing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [findings, setFindings] = React.useState<ComparisonFinding[]>([]);
+  const [hasCompared, setHasCompared] = React.useState(false);
 
   const baselineInputRef = React.useRef<HTMLInputElement | null>(null);
   const newInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  const handleSelectBaseline = () => {
-    baselineInputRef.current?.click();
-  };
-
-  const handleSelectNew = () => {
-    newInputRef.current?.click();
-  };
-
-  async function extractFile(file: File): Promise<string> {
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".pdf")) return extractPdf(file);
-    return extractDocx(file);
-  }
-
-  function isValidFile(file: File): boolean {
-    const name = file.name.toLowerCase();
-    return name.endsWith(".docx") || name.endsWith(".pdf");
-  }
 
   const handleBaselineChange = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -284,7 +74,7 @@ export default function ComparePage() {
 
     setError(null);
     if (!isValidFile(file)) {
-      setError("Please upload a .docx or .pdf file for the baseline agreement.");
+      setError("Please upload a .docx or .pdf file for the baseline.");
       return;
     }
 
@@ -293,9 +83,11 @@ export default function ComparePage() {
       const text = await extractFile(file);
       setBaselineText(text || "");
       setBaselineName(file.name);
+      setFindings([]);
+      setHasCompared(false);
     } catch (err) {
-      console.error("Failed to read baseline file", err);
-      setError("We couldn't read the baseline file. Please try another.");
+      const msg = err instanceof Error ? err.message : "Failed to read baseline file";
+      setError(msg);
     } finally {
       setIsLoadingBaseline(false);
       event.target.value = "";
@@ -310,7 +102,7 @@ export default function ComparePage() {
 
     setError(null);
     if (!isValidFile(file)) {
-      setError("Please upload a .docx or .pdf file for the new / amended agreement.");
+      setError("Please upload a .docx or .pdf for the new agreement.");
       return;
     }
 
@@ -319,27 +111,68 @@ export default function ComparePage() {
       const text = await extractFile(file);
       setNewText(text || "");
       setNewName(file.name);
+      setFindings([]);
+      setHasCompared(false);
     } catch (err) {
-      console.error("Failed to read new file", err);
-      setError("We couldn't read the new file. Please try another.");
+      const msg = err instanceof Error ? err.message : "Failed to read new file";
+      setError(msg);
     } finally {
       setIsLoadingNew(false);
       event.target.value = "";
     }
   };
 
-  const handleCompare = () => {
+  const handleCompare = async () => {
     setError(null);
 
     if (!baselineText || !newText) {
-      setError(
-        "Please upload both the baseline and new agreements before comparing."
-      );
+      setError("Please upload both documents before comparing.");
       return;
     }
 
-    const results = compareDocuments(baselineText, newText);
-    setFindings(results);
+    setIsComparing(true);
+    setFindings([]);
+
+    try {
+      const response = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baselineText, newText }),
+      });
+
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error((body as { error?: string }).error ?? "Comparison failed");
+      }
+
+      const raw = (body as { findings: unknown[] }).findings;
+      if (!Array.isArray(raw)) {
+        setFindings([]);
+        setHasCompared(true);
+        return;
+      }
+
+      const mapped: ComparisonFinding[] = raw.map((f, i) => {
+        const item = f as Record<string, unknown>;
+        return {
+          id: `CF-${i + 1}`,
+          severity: (item.severity as Severity) ?? "medium",
+          ruleTitle: (item.ruleTitle as string) ?? "Change detected",
+          why: (item.why as string) ?? "",
+          suggestion: (item.suggestion as string) ?? "",
+          baselineSnippet: (item.baselineSnippet as string) ?? undefined,
+          newSnippet: (item.newSnippet as string) ?? undefined,
+        };
+      });
+
+      setFindings(mapped);
+      setHasCompared(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Comparison failed";
+      setError(msg);
+    } finally {
+      setIsComparing(false);
+    }
   };
 
   return (
@@ -354,7 +187,6 @@ export default function ComparePage() {
               Agreement clause review
             </span>
           </div>
-
           <AppNav />
         </div>
       </header>
@@ -366,9 +198,9 @@ export default function ComparePage() {
               Document Comparison
             </h1>
             <p className="max-w-2xl text-sm text-navy/80">
-              Compare a baseline agreement against a new or amended version
-              to spot structural and drafting differences in a deterministic
-              way.
+              Upload two versions of an agreement. AI reads both in full
+              and surfaces the meaningful differences — clause changes, removed
+              protections, new risks.
             </p>
           </header>
 
@@ -378,6 +210,7 @@ export default function ComparePage() {
             </div>
           )}
 
+          {/* Upload cards */}
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="rounded-2xl border-tan/40 bg-cream/95 shadow-sm">
               <CardHeader className="pb-3">
@@ -400,14 +233,21 @@ export default function ComparePage() {
                   type="button"
                   variant="outline"
                   className="w-full justify-center rounded-full border-dusty/60 bg-cream/80 text-sm text-navy hover:bg-tan/20"
-                  onClick={handleSelectBaseline}
+                  onClick={() => baselineInputRef.current?.click()}
                   disabled={isLoadingBaseline}
                 >
-                  {isLoadingBaseline ? "Loading baseline…" : "Upload .docx or .pdf"}
+                  {isLoadingBaseline
+                    ? "Loading…"
+                    : baselineName
+                    ? "Replace file"
+                    : "Upload .docx or .pdf"}
                 </Button>
                 {baselineName && (
                   <p className="truncate text-xs text-navy/70">
                     Loaded: <span className="font-medium">{baselineName}</span>
+                    <span className="ml-2 text-navy/40">
+                      ({baselineText.length.toLocaleString()} chars)
+                    </span>
                   </p>
                 )}
               </CardContent>
@@ -434,52 +274,114 @@ export default function ComparePage() {
                   type="button"
                   variant="outline"
                   className="w-full justify-center rounded-full border-dusty/60 bg-cream/80 text-sm text-navy hover:bg-tan/20"
-                  onClick={handleSelectNew}
+                  onClick={() => newInputRef.current?.click()}
                   disabled={isLoadingNew}
                 >
-                  {isLoadingNew ? "Loading new agreement…" : "Upload .docx or .pdf"}
+                  {isLoadingNew
+                    ? "Loading…"
+                    : newName
+                    ? "Replace file"
+                    : "Upload .docx or .pdf"}
                 </Button>
                 {newName && (
                   <p className="truncate text-xs text-navy/70">
                     Loaded: <span className="font-medium">{newName}</span>
+                    <span className="ml-2 text-navy/40">
+                      ({newText.length.toLocaleString()} chars)
+                    </span>
                   </p>
                 )}
               </CardContent>
             </Card>
           </div>
 
+          {/* Compare button */}
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-navy/70">
-              When both documents are loaded, run a deterministic comparison on
-              key clauses and defined terms.
+              AI reads both documents in full and identifies the specific
+              differences that matter legally.
             </p>
             <Button
               type="button"
-              className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-cream hover:bg-navy/90"
+              className="rounded-full bg-navy px-5 py-2 text-sm font-medium text-cream hover:bg-navy/90 disabled:opacity-60"
               onClick={handleCompare}
-              disabled={!baselineText || !newText}
+              disabled={!baselineText || !newText || isComparing}
             >
-              Compare Documents
+              {isComparing ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-cream border-t-transparent" />
+                  Comparing…
+                </span>
+              ) : (
+                "Compare Documents"
+              )}
             </Button>
           </div>
 
+          {/* Side-by-side full document text */}
+          {(baselineText || newText) && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="rounded-2xl border-tan/40 bg-cream/95 shadow-sm">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-dusty">
+                    Baseline — full text
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <ScrollArea className="h-72 rounded-xl border border-tan/30 bg-cream/60 p-3">
+                    <pre className="whitespace-pre-wrap font-mono text-[0.7rem] leading-relaxed text-navy/85">
+                      {baselineText || "No document loaded yet."}
+                    </pre>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-tan/40 bg-cream/95 shadow-sm">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-dusty">
+                    New / Amended — full text
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <ScrollArea className="h-72 rounded-xl border border-tan/30 bg-cream/60 p-3">
+                    <pre className="whitespace-pre-wrap font-mono text-[0.7rem] leading-relaxed text-navy/85">
+                      {newText || "No document loaded yet."}
+                    </pre>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Findings */}
           <Card className="flex min-h-50 flex-col rounded-2xl border-tan/40 bg-cream/95 shadow-md">
             <CardHeader className="pb-2 pt-3 sm:pb-3 sm:pt-4">
               <CardTitle className="font-serif text-[1.05rem] font-semibold tracking-tight">
                 Comparison findings
               </CardTitle>
               <CardDescription className="mt-1 flex items-center justify-between gap-2 text-[0.7rem] uppercase tracking-[0.25em] text-dusty">
-                <span className="truncate">Deterministic differences</span>
+                <span className="flex items-center gap-2">
+                  <span className="truncate">AI-powered differences</span>
+                  <span className="rounded-full border border-navy bg-navy px-2 py-[0.05rem] text-[0.6rem] font-bold normal-case tracking-[0.12em] text-cream">
+                    AI
+                  </span>
+                </span>
                 <span className="font-sans text-[0.7rem] text-navy/70">
                   {findings.length} finding{findings.length === 1 ? "" : "s"}
                 </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 pt-1">
-              {findings.length === 0 ? (
+              {isComparing ? (
+                <div className="flex w-full items-center justify-center gap-3 py-10 text-sm text-navy/60">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-navy/40 border-t-navy" />
+                  Analysing differences…
+                </div>
+              ) : findings.length === 0 ? (
                 <div className="flex w-full items-center justify-center px-4 py-8 text-center text-sm text-navy/60">
-                  Upload both documents and run a comparison to see structured
-                  differences here.
+                  {hasCompared
+                    ? "No meaningful differences found between the two documents."
+                    : "Upload both documents and click Compare Documents to see AI-powered differences here."}
                 </div>
               ) : (
                 <ScrollArea className="h-full w-full pr-3">
@@ -501,7 +403,7 @@ export default function ComparePage() {
                           <Badge
                             variant="outline"
                             className={
-                              "ml-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold " +
+                              "ml-2 shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold " +
                               severityBadgeClasses(finding.severity)
                             }
                           >
@@ -514,32 +416,32 @@ export default function ComparePage() {
                         <div className="grid gap-3 md:grid-cols-2">
                           <div>
                             <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-dusty">
-                              Baseline agreement
+                              Baseline
                             </div>
-                            <div className="rounded-xl border border-tan/30 bg-cream/80 p-2 text-[0.75rem] leading-relaxed text-navy/90">
+                            <div className="rounded-xl border border-tan/30 bg-cream/80 p-2">
                               {finding.baselineSnippet ? (
-                                <pre className="whitespace-pre-wrap font-mono text-[0.7rem]">
+                                <pre className="whitespace-pre-wrap font-mono text-[0.7rem] leading-relaxed text-navy/90">
                                   {finding.baselineSnippet}
                                 </pre>
                               ) : (
-                                <span className="text-navy/50">
-                                  No specific baseline snippet for this finding.
+                                <span className="text-[0.75rem] italic text-navy/40">
+                                  Not present in baseline
                                 </span>
                               )}
                             </div>
                           </div>
                           <div>
                             <div className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-dusty">
-                              New / amended agreement
+                              New / Amended
                             </div>
-                            <div className="rounded-xl border border-tan/30 bg-cream/80 p-2 text-[0.75rem] leading-relaxed text-navy/90">
+                            <div className="rounded-xl border border-tan/30 bg-cream/80 p-2">
                               {finding.newSnippet ? (
-                                <pre className="whitespace-pre-wrap font-mono text-[0.7rem]">
+                                <pre className="whitespace-pre-wrap font-mono text-[0.7rem] leading-relaxed text-navy/90">
                                   {finding.newSnippet}
                                 </pre>
                               ) : (
-                                <span className="text-navy/50">
-                                  No specific new snippet for this finding.
+                                <span className="text-[0.75rem] italic text-navy/40">
+                                  Removed in new version
                                 </span>
                               )}
                             </div>
@@ -547,9 +449,7 @@ export default function ComparePage() {
                         </div>
 
                         <div className="mt-3 text-[0.75rem] text-navy/80">
-                          <span className="font-semibold">
-                            Suggested review:{" "}
-                          </span>
+                          <span className="font-semibold">Suggested review: </span>
                           {finding.suggestion}
                         </div>
                       </div>

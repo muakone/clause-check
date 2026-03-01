@@ -131,28 +131,6 @@ function createClauseRules(): ClauseRule[] {
     },
   });
 
-  // One-sided acceleration / on-demand repayment (HIGH)
-  rules.push({
-    id: "C-005",
-    title: "On-demand / immediate repayment",
-    severity: "high",
-    category: "Safeguards",
-    pattern:
-      /(repayable on demand|at any time|immediate repayment|for any reason or no reason)/gi,
-    buildFinding: (match): Omit<ClauseFinding, "id"> => {
-      const trigger = match[0];
-      return {
-        severity: "high",
-        ruleTitle: "On-demand / immediate repayment",
-        category: "Safeguards",
-        matchedText: trigger,
-        why: "This clause suggests one party may demand immediate performance or repayment at will (for example, 'repayable on demand' or similar), which can create significant operational and financial risk for the other party.",
-        suggestion:
-          "Consider tying acceleration to defined Events of Default or objective triggers instead of unrestricted on-demand rights.",
-      };
-    },
-  });
-
   // Unilateral amendment without consent (HIGH, per-clause)
   rules.push({
     id: "C-006",
@@ -266,8 +244,10 @@ export default function ManualClauseCheckPage() {
   const [clauseText, setClauseText] = React.useState("");
   const [findings, setFindings] = React.useState<ClauseFinding[]>([]);
   const [hasRun, setHasRun] = React.useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = React.useState(false);
+  const [aiError, setAiError] = React.useState<string | null>(null);
 
-  const handleRunChecks = () => {
+  const handleRunChecks = async () => {
     const trimmed = clauseText.trim();
     if (!trimmed) {
       setFindings([]);
@@ -275,9 +255,47 @@ export default function ManualClauseCheckPage() {
       return;
     }
 
+    // Run deterministic rules immediately
     const results = runClauseChecks(trimmed);
     setFindings(results);
     setHasRun(true);
+    setAiError(null);
+
+    // Then fire Gemini AI analysis for the clause
+    setIsAiAnalyzing(true);
+    try {
+      const response = await fetch("/api/analyze-clause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: trimmed }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error((body as { error?: string }).error ?? "AI analysis failed");
+      }
+      const raw = (body as { findings: unknown[] }).findings;
+      if (!Array.isArray(raw)) return;
+
+      const aiFindings: ClauseFinding[] = raw.map((f, i) => {
+        const item = f as Record<string, unknown>;
+        return {
+          id: `AI-${i + 1}`,
+          severity: (item.severity as ClauseFinding["severity"]) ?? "medium",
+          ruleTitle: (item.title as string) ?? "AI Finding",
+          category: "Discretion" as ClauseFinding["category"],
+          why: (item.why as string) ?? "",
+          suggestion: (item.suggestion as string) ?? "",
+          matchedText: (item.matchedText as string) ?? "",
+        };
+      });
+
+      setFindings((prev) => [...prev, ...aiFindings]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "AI analysis failed";
+      setAiError(msg);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
   };
 
   return (
@@ -330,10 +348,18 @@ export default function ManualClauseCheckPage() {
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-cream hover:bg-navy/90"
+                  className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-cream hover:bg-navy/90 disabled:opacity-60"
                   onClick={handleRunChecks}
+                  disabled={isAiAnalyzing}
                 >
-                  Run clause checks
+                  {isAiAnalyzing ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-cream border-t-transparent" />
+                      AI analysing…
+                    </span>
+                  ) : (
+                    "Run clause checks"
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -345,11 +371,22 @@ export default function ManualClauseCheckPage() {
                 Clause findings
               </CardTitle>
               <CardDescription className="mt-1 flex items-center justify-between gap-2 text-[0.7rem] uppercase tracking-[0.25em] text-dusty">
-                <span className="truncate">Deterministic checks</span>
+                <span className="truncate">Rule-based + AI checks</span>
                 <span className="font-sans text-[0.7rem] text-navy/70">
                   {findings.length} finding{findings.length === 1 ? "" : "s"}
                 </span>
               </CardDescription>
+              {isAiAnalyzing && (
+                <div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-navy/60">
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-navy/50" />
+                  Analysing clause…
+                </div>
+              )}
+              {aiError && !isAiAnalyzing && (
+                <div className="mt-1 text-[0.65rem] text-red-600">
+                  AI analysis failed — {aiError}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 pt-1">
               {!hasRun ? (
@@ -374,7 +411,14 @@ export default function ManualClauseCheckPage() {
                               {finding.ruleTitle}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-[0.7rem] uppercase tracking-[0.25em] text-dusty">
-                              <span>{finding.category}</span>
+                              {!finding.id.startsWith("AI-") && (
+                                <span>{finding.category}</span>
+                              )}
+                              {finding.id.startsWith("AI-") && (
+                                <span className="rounded-full border border-navy bg-navy px-2 py-[0.05rem] text-[0.6rem] font-bold normal-case tracking-[0.12em] text-cream">
+                                  AI
+                                </span>
+                              )}
                             </div>
                           </div>
                           <Badge

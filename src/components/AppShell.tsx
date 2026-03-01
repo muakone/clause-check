@@ -282,7 +282,7 @@ export function AppShell() {
           <div className="mx-auto flex max-w-6xl items-center gap-3">
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-cream border-t-transparent" />
             <span className="text-[0.8rem] font-medium text-cream">
-              Gemini AI is analysing your document for additional risks…
+              Analysing document for additional risks…
             </span>
           </div>
         </div>
@@ -297,7 +297,7 @@ export function AppShell() {
       {aiCount !== null && !isAiAnalyzing && !aiError && (
         <div className="border-b border-navy/20 bg-navy/8 px-4 py-2 sm:px-6">
           <div className="mx-auto max-w-6xl text-[0.75rem] font-medium text-navy">
-            Gemini AI added {aiCount} additional finding{aiCount !== 1 ? "s" : ""} — look for the{" "}
+            AI found {aiCount} additional finding{aiCount !== 1 ? "s" : ""} — look for the{" "}
             <span className="inline-flex items-center rounded-full border border-navy bg-navy px-1.5 py-0 text-[0.6rem] font-bold text-cream">
               AI
             </span>{" "}

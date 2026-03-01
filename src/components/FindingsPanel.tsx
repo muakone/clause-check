@@ -131,13 +131,12 @@ export function FindingsPanel({
         {isAiAnalyzing && (
           <div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-navy/60">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-navy/50" />
-            Gemini AI analysing document…
+            Analysing…
           </div>
         )}
         {aiError && !isAiAnalyzing && (
           <div className="mt-1 text-[0.65rem] text-red-600">
-            AI analysis failed — restart the server and check your
-            GEMINI_API_KEY.
+            AI analysis failed — check your configuration.
           </div>
         )}
         <div className="mt-2 flex items-center justify-between gap-2">

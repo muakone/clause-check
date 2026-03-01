@@ -87,7 +87,7 @@ export function FindingDetailSheet({
                 </span>
                 {finding.ruleId.startsWith("AI-") ? (
                   <span className="rounded-full border border-navy bg-navy px-2 py-[0.05rem] text-[0.6rem] font-bold uppercase tracking-[0.18em] text-cream">
-                    AI · Gemini
+                    AI
                   </span>
                 ) : (
                   <span className="text-[0.7rem] text-dusty/80">
